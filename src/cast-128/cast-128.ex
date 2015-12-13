@@ -1,8 +1,9 @@
-defmodule Cast128 do
+defmodule Crypto.Cast128 do
 
     import List
     import Enum
     import Bitwise
+    import Base
 
     def sBox() do   
       [[0x30fb40d4, 0x9fa0ff0b, 0x6beccd2f, 0x3f258c7a, 0x1e213f2f, 0x9c004dd3, 0x6003e540, 
@@ -459,8 +460,29 @@ defmodule Cast128 do
       {masking, rotate} 
     end
 
+    # Encrypt plain text wth a given key
+    # to a hex string
+    def encryptHex(plainTxt, key) do
+        plainTxt = 
+          if (is_binary(plainTxt)) do
+            String.to_char_list(plainTxt)
+          else
+            plainTxt
+          end
+        plainTxt = String.Chars.to_string(encrypt(plainTxt, key))
+        Base.encode16(plainTxt)
+    end
+
     # Encrypt plaintext with a given key
     def encrypt(plainTxt, key) do
+        plainTxt = 
+          if (is_binary(plainTxt)) do
+            String.to_char_list(plainTxt)
+          else
+            plainTxt
+          end
+
+
         keyLen = length key
         if (keyLen < 5) or (keyLen > 16) do
             raise ArgumentError,message: "key must be between 40 and 128 bits in size"
@@ -530,6 +552,19 @@ defmodule Cast128 do
           l2 &&& 0xff,
         ]
     end
+
+    # Decrypt hex crypto string wth a given key
+    # to a string
+    def decryptHex(cypherTxt, key) do
+        cypherTxt = case Base.decode16(cypherTxt, case: :mixed) do
+                      :error -> raise ArgumentError,message: "error convering hex cyphertext"
+                      {:ok, text} -> to_char_list(text)
+                    end
+
+        plainTxt = decrypt(cypherTxt, key)
+        String.Chars.to_string(plainTxt)
+    end
+
 
     def decrypt(cypherTxt, key) do
         keyLen = length key
