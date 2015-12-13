@@ -496,12 +496,14 @@ defmodule Crypto.Cast128 do
         end
                  
         # Keys less than 128 bits are padded with 0s in the LSBs.
-        key2 = key ++ duplicate(0, (16 - keyLen))
+        key = key ++ duplicate(0, (16 - keyLen))
 
         # Pad plaintext so that it contains n * 64 bits
         # chunks
+        n = 8 - rem((length plainTxt), 8)
+        plainTxt = plainTxt ++ duplicate(n, n)
           
-        {mask, rot} = keySchedule(key2, rounds)
+        {mask, rot} = keySchedule(key, rounds)
         encrypt(0, plainTxt, '', mask, rot)
     end
 
@@ -588,7 +590,11 @@ defmodule Crypto.Cast128 do
         key2 = key ++ duplicate(0, (16 - keyLen))
 
         {mask, rot} = keySchedule(key2, rounds)
-        decrypt(0, cypherTxt, '', mask, rot)
+        plainTxt = decrypt(0, cypherTxt, '', mask, rot)
+        
+        #Check last byte of the plainTxt to check how much padding
+        #was applied to the original message and remove it
+        take(plainTxt, length(plainTxt) - last(plainTxt)) 
     end
 
     def decrypt(byteN, cypherTxt, plainTxt, mask, rot) do
