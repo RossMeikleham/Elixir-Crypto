@@ -3,10 +3,6 @@ defmodule Cast128 do
     import List
     import Enum
     import Bitwise
-    
-
-    def blockSize() do 8 end
-    def keySize() do 16 end
 
     def sBox() do   
       [[0x30fb40d4, 0x9fa0ff0b, 0x6beccd2f, 0x3f258c7a, 0x1e213f2f, 0x9c004dd3, 0x6003e540, 
@@ -463,6 +459,7 @@ defmodule Cast128 do
       {masking, rotate} 
     end
 
+    # Encrypt plaintext with a given key
     def encrypt(plainTxt, key) do
         keyLen = length key
         if (keyLen < 5) or (keyLen > 16) do
@@ -517,8 +514,7 @@ defmodule Cast128 do
         r = pTxtElem.(byteN + 4) <<< 24 ||| pTxtElem.(byteN + 5) <<< 16 ||| 
             pTxtElem.(byteN + 6) <<< 8  ||| pTxtElem.(byteN + 7) 
 
-        #There must be a better way of this e.g. in haskell [0..15]
-        vals = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] 
+        vals = Enum.to_list 0..15 
         {l2, r2} = foldl(vals, {l, r},
                     &(case (&2) do
                       {l, r} ->  nthIter.(l, r, &1)
@@ -535,11 +531,82 @@ defmodule Cast128 do
         ]
     end
 
+    def decrypt(cypherTxt, key) do
+        keyLen = length key
+        if (keyLen < 5) or (keyLen > 16) do
+            raise ArgumentError,message: "key must be between 40 and 128 bits in size"
+        end
+
+        # Check cypher text is in 64 bit chunks
+        if rem((length cypherTxt), 8) != 0 do
+            raise ArgumentError,message: "number of bits in cypher text must divide 64"
+        end
+
+        # Keys <= 80 bits only perform 3 rounds when generating the
+        # mask and rotation keys 
+        rounds = cond do
+            keyLen <= 10 -> 3
+            true -> 4
+        end
+                 
+        # Keys less than 128 bits are padded with 0s in the LSBs.
+        key2 = key ++ duplicate(0, (16 - keyLen))
+
+        {mask, rot} = keySchedule(key2, rounds)
+        decrypt(0, cypherTxt, '', mask, rot)
+    end
+
+    def decrypt(byteN, cypherTxt, plainTxt, mask, rot) do
+        if byteN >= length cypherTxt do
+          plainTxt
+        else
+          plain8 = decrypt8(byteN, cypherTxt, mask, rot)
+          decrypt(byteN + 8, cypherTxt, plainTxt ++ plain8, mask, rot)
+        end
+    end
+
+    def decrypt8(byteN, cypherTxt, masking, rotate) do
+        pCyphElem = fn(n) -> at(cypherTxt, n) end
+                
+        nthIter = fn(l, r, n) -> 
+          mask = at(masking, n)
+          rot  = at(rotate, n)
+          t = case rem(n, 3) do
+                0 -> l ^^^ f1(r, mask, rot)
+                1 -> l ^^^ f2(r, mask, rot) 
+                2 -> l ^^^ f3(r, mask, rot)
+              end
+          {r, t}
+        end
+
+        l = pCyphElem.(byteN)    <<< 24 ||| pCyphElem.(byteN + 1) <<< 16 ||| 
+            pCyphElem.(byteN + 2) <<< 8 ||| pCyphElem.(byteN + 3) 
+
+        r = pCyphElem.(byteN + 4) <<< 24 ||| pCyphElem.(byteN + 5) <<< 16 ||| 
+            pCyphElem.(byteN + 6) <<< 8  ||| pCyphElem.(byteN + 7) 
+
+        vals = Enum.to_list 15..0
+        {l2, r2} = foldl(vals, {l, r},
+                    &(case (&2) do
+                      {l, r} ->  nthIter.(l, r, &1)
+                      end))
+     
+        [(r2 >>> 24) &&& 0xff, 
+         (r2 >>> 16) &&& 0xff,
+         (r2 >>> 8)  &&& 0xff,
+          r2 &&& 0xff,
+         (l2 >>> 24) &&& 0xff, 
+         (l2 >>> 16) &&& 0xff,
+         (l2 >>> 8)  &&& 0xff,
+          l2 &&& 0xff,
+        ]
+    end
 
     # These are the three 'f' functions. See RFC 2144, section 2.2.
     def f1(d, m, r) do
         t = (m + d) &&& 0xFFFFFFFF
         i = ((t <<< r) ||| (t >>> (32 - r)))  &&& 0xFFFFFFFF
+        
         (sBoxAt(0, i >>> 24) ^^^ sBoxAt(1, (i >>> 16) &&& 255)) -
          sBoxAt(2, (i >>> 8) &&& 255) + sBoxAt(3, i &&& 255)
     end
@@ -547,6 +614,7 @@ defmodule Cast128 do
     def f2(d, m, r) do
         t = (m ^^^ d) &&& 0xFFFFFFFF
         i = ((t <<< r) ^^^ (t >>> (32 - r))) &&& 0xFFFFFFFF
+        
         (sBoxAt(0, i >>> 24) - sBoxAt(1, (i >>> 16) &&& 255)) +
          sBoxAt(2, (i >>> 8) &&& 255) ^^^ sBoxAt(3, i &&& 255)
     end
@@ -554,9 +622,7 @@ defmodule Cast128 do
     def f3(d, m, r) do
         t = (m - d) &&& 0xFFFFFFFF;
         i = ((t <<< r) ||| (t >>> (32 - r))) &&& 0xFFFFFFFF
-        IO.puts(t <<< r)
-        IO.puts(t >>> (32 - r))
-        IO.puts(i)
+        
         ((sBoxAt(0, i >>> 24) + sBoxAt(1, (i >>> 16) &&& 255)) ^^^
          sBoxAt(2, (i >>> 8) &&& 255)) - sBoxAt(3, i &&& 255)
     end
