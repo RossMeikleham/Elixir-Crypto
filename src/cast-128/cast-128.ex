@@ -410,7 +410,7 @@ defmodule Crypto.Cast128 do
           sBoxAt(n + 4, (at(t, at(b, n) >>> 2) >>> 
                         (24 - 8*(at(b, n)  &&& 3))) &&& 0xff)
         end
-        
+
         s= sBoxAt(4, (at(t, at(b, 0) >>> 2) >>> (24 - 8 * (at(b, 0) &&& 3))) &&& 0xff)
         w = foldl [1,2,3], s, &(&2 ^^^ calcW.(&1)) 
         w2 = w  ^^^ sBoxAt(4 + j, (at(t, at(b, 4) >>> 2) >>> 
@@ -449,7 +449,7 @@ defmodule Crypto.Cast128 do
           k3
       end 
       
-      t = Enum.map(roundLst, fn n -> get_t.(n) end) ++ duplicate(0, 4)
+      t = Enum.map([0,1,2,3], fn n -> get_t.(n) end) ++ duplicate(0, 4)
       ki = 0
       k = duplicate(0, 32)
       
