@@ -2,7 +2,8 @@
 
 Cryptographic Algorithms implemented in Elixir
 
-note: Don't use any of these algorithms for
+> ***note**** Don't use any of these implementations for any important
+data you want to encrypt.
 # Algorithms Implemented
 
 ## CAST-128
