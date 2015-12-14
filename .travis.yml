@@ -1,2 +1,4 @@
 language: elixir
-mix test
+
+script:
+  mix test
