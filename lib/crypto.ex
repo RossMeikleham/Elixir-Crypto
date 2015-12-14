@@ -1,0 +1,2 @@
+defmodule Crypto do
+end
