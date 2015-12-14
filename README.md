@@ -5,6 +5,7 @@ Cryptographic Algorithms implemented in Elixir
 > ***note**** Don't use any of these implementations for any important
 data you want to encrypt.
 
+[![Build Status](https://travis-ci.org/RossMeikleham/Elixir-Crypto.svg)](https://travis-ci.org/RossMeikleham/Elixir-Crypto)
 
 # Algorithms Implemented
 
